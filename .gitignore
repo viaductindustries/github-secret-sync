@@ -1,0 +1,6 @@
+/ghsecretsync
+*.test
+coverage.out
+
+/dist/
+/github-secret-sync
