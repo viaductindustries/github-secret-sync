@@ -91,9 +91,16 @@ type field struct {
 }
 type item struct {
 	ID, Title string
+	Vault     struct{ ID string }
 	Tags      []string
 	Fields    []field
+	Files     []attachment
 	Sections  []struct{ ID, Label string }
+}
+type attachment struct {
+	ID, Name string
+	Size     int64
+	Section  *struct{ ID string }
 }
 type target struct{ Scope, Name string }
 
@@ -227,10 +234,18 @@ func (a *app) plan(ctx context.Context) ([]entry, error) {
 		if err != nil {
 			return nil, err
 		}
+		if len(ts) == 0 {
+			continue
+		}
 		entries, err := itemEntries(it, ts)
 		if err != nil {
 			return nil, err
 		}
+		files, err := a.attachmentEntries(ctx, it, ts)
+		if err != nil {
+			return nil, err
+		}
+		entries = append(entries, files...)
 		for _, e := range entries {
 			if old, ok := all[e.key()]; ok && old.Value != e.Value {
 				return nil, fmt.Errorf("conflicting values for %s", e.key())

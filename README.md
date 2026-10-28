@@ -30,6 +30,8 @@ Use each field's **label** as its GitHub name, for example `API_TOKEN` or `DEPLO
 
 Names are normalized to uppercase and must contain only letters, numbers, and underscores, cannot begin with a digit, and cannot start with `GITHUB_`. Values, including empty custom-field values and trailing newlines, are preserved exactly. Notes and unfilled built-in username/password/credential fields are ignored. Populated built-in fields are synced normally. Other field types are rejected to avoid silently skipping intended configuration. Sections have no special meaning.
 
+File attachments become **secrets**, using their name with all extensions removed and converted to uppercase: `SIGNING_KEY.pem` and `signing_key.pem.txt` both become `SIGNING_KEY`. The resulting name must meet the same GitHub naming rules as fields. Attachment contents are read using `op read` and preserved exactly, including trailing newlines; they are never printed or saved to temporary files. Empty attachments are supported. Files larger than 48 KB are rejected before any GitHub writes. Attachments participate in previews, confirmation, duplicate detection, and unchanged-secret detection just like concealed fields.
+
 Multiple items can target the same name if their values agree. Conflicting values abort the run before any GitHub writes. Secrets and variables have separate namespaces. Removing an item, tag, or field does **not** delete anything from GitHub; changing a field's type creates the other kind without deleting the original.
 
 ## Configuration
