@@ -89,3 +89,18 @@ jobs:
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # Opens a reviewed version/checksum PR in viaductindustries/homebrew-tap.
+  # After fixing a failure, re-run only this job; the release is unaffected.
+  update-homebrew:
+    needs: [release-please, publish]
+    if: always() && !cancelled() && needs.publish.result == 'success'
+    permissions:
+      contents: read
+    uses: viaductindustries/homebrew-tap/.github/workflows/update-package.yml@6f7ce3e6feb6cf815160d681efb7382bf3638262 # main
+    with:
+      package: ghsecretsync
+      tag: ${{ inputs.tag || needs.release-please.outputs.tag_name }}
+      app-client-id: ${{ vars.HOMEBREW_APP_CLIENT_ID }}
+    secrets:
+      HOMEBREW_APP_PRIVATE_KEY: ${{ secrets.HOMEBREW_APP_PRIVATE_KEY }}

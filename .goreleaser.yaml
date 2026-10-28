@@ -24,6 +24,12 @@ archives:
     files:
       - README.md
 
+# Homebrew builds the formula from this archive; the tap requires a release asset.
+source:
+  enabled: true
+  name_template: '{{ .ProjectName }}_{{ .Version }}_source'
+  prefix_template: '{{ .ProjectName }}_{{ .Version }}/'
+
 checksum:
   name_template: checksums.txt
 
