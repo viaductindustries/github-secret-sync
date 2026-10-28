@@ -40,6 +40,12 @@ func (a *app) preview(changes []change, dry bool) int {
 	}
 	fmt.Fprintf(a.out, "\n%s\n", a.paint("1", title))
 	fmt.Fprintf(a.out, "Vault: %s  →  %s\n", a.cfg.Vault, a.cfg.Host)
+	if a.filter.Scope != "" {
+		fmt.Fprintf(a.out, "Destination: %s\n", a.filter.String())
+		if len(changes) == 0 {
+			fmt.Fprintln(a.out, "No configured entries match this destination.")
+		}
+	}
 	counts := map[string]int{}
 	destination := ""
 	for _, c := range changes {

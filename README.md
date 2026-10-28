@@ -14,6 +14,15 @@ go build -o ghsecretsync .
 
 The GitHub identity needs permission to manage Actions secrets and variables at each destination. Organization access may require additional scopes/permissions; the program does not change authentication or request scopes automatically.
 
+Limit a run to one destination:
+
+```sh
+./ghsecretsync --repo adam/whatever --dry-run
+./ghsecretsync --org viaduct
+```
+
+`--repo` and `--org` are mutually exclusive, case-insensitive filters on the existing 1Password destination tags. Only entries tagged for that exact destination are synced; items tagged for multiple destinations are applied only to the selected one. `--org` selects organization-level secrets and variables, not every repository owned by the organization. Without either flag, all tagged destinations are included. The preview shows the selected destination and reports when no entries match. Normal runs still ask for confirmation.
+
 ## 1Password items
 
 Create items in the **GitHub Actions** vault, or the vault configured below. A Secure Note with custom fields works well. Add one or more destination tags:

@@ -174,11 +174,25 @@ func itemEntries(it item, ts []target) ([]entry, error) {
 }
 
 type app struct {
-	cfg   config
-	run   runner
-	out   io.Writer
-	in    io.Reader
-	color bool
+	cfg    config
+	run    runner
+	out    io.Writer
+	in     io.Reader
+	color  bool
+	filter target
+}
+
+func (a *app) selectedTargets(ts []target) []target {
+	if a.filter.Scope == "" {
+		return ts
+	}
+	var selected []target
+	for _, t := range ts {
+		if t.Scope == a.filter.Scope && strings.EqualFold(t.Name, a.filter.Name) {
+			selected = append(selected, t)
+		}
+	}
+	return selected
 }
 
 func (a *app) api(ctx context.Context, method, path string, body any, paginate bool) ([]byte, error) {
@@ -219,6 +233,7 @@ func (a *app) plan(ctx context.Context) ([]entry, error) {
 		if err != nil {
 			return nil, err
 		}
+		ts = a.selectedTargets(ts)
 		if len(ts) == 0 {
 			continue
 		}
@@ -234,6 +249,7 @@ func (a *app) plan(ctx context.Context) ([]entry, error) {
 		if err != nil {
 			return nil, err
 		}
+		ts = a.selectedTargets(ts)
 		if len(ts) == 0 {
 			continue
 		}
@@ -505,17 +521,40 @@ func runCLI(ctx context.Context, args []string, out, errOut io.Writer) error {
 	flags.SetOutput(errOut)
 	path := flags.String("config", filepath.Join(home, ".config", "ghsecretsync"), "configuration file (JSON)")
 	dry := flags.Bool("dry-run", false, "preview changes without writing to GitHub or local state")
+	repo := flags.String("repo", "", "sync only this tagged repository (OWNER/REPO)")
+	org := flags.String("org", "", "sync only this tagged organization")
 	if err = flags.Parse(args); err != nil {
 		return err
 	}
 	if flags.NArg() != 0 {
 		return errors.New("unexpected positional arguments")
 	}
+	var repoSet, orgSet bool
+	flags.Visit(func(f *flag.Flag) {
+		repoSet = repoSet || f.Name == "repo"
+		orgSet = orgSet || f.Name == "org"
+	})
+	if repoSet && orgSet {
+		return errors.New("--repo and --org cannot be used together")
+	}
+	var filter target
+	if repoSet {
+		if !repoPattern.MatchString(*repo) {
+			return errors.New("--repo must be OWNER/REPO")
+		}
+		filter = target{"repo", strings.ToLower(*repo)}
+	}
+	if orgSet {
+		if !ownerPattern.MatchString(*org) {
+			return errors.New("--org must be an organization name")
+		}
+		filter = target{"org", strings.ToLower(*org)}
+	}
 	cfg, err := loadConfig(*path)
 	if err != nil {
 		return err
 	}
-	a := app{cfg: cfg, run: command, out: out, in: os.Stdin, color: useColor(out)}
+	a := app{cfg: cfg, run: command, out: out, in: os.Stdin, color: useColor(out), filter: filter}
 	return a.sync(ctx, *dry)
 }
 func main() {
