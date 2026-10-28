@@ -1,0 +1,40 @@
+version: 2
+project_name: ghsecretsync
+
+builds:
+  - id: ghsecretsync
+    main: .
+    binary: ghsecretsync
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - darwin
+      - linux
+    goarch:
+      - amd64
+      - arm64
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w
+
+archives:
+  - formats: [tar.gz]
+    name_template: '{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}'
+    files:
+      - README.md
+
+checksum:
+  name_template: checksums.txt
+
+changelog:
+  disable: true
+
+release:
+  github:
+    owner: viaductindustries
+    name: github-secret-sync
+  mode: keep-existing
+  draft: false
+  use_existing_draft: true
+  replace_existing_artifacts: true
