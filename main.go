@@ -111,6 +111,9 @@ func (t target) path() string {
 		return "repos/" + t.Name + "/actions"
 	case "org":
 		return "orgs/" + t.Name + "/actions"
+	case "env":
+		i := strings.LastIndex(t.Name, "/")
+		return "repos/" + t.Name[:i] + "/environments/" + t.Name[i+1:]
 	default:
 		panic("invalid target scope")
 	}
@@ -125,7 +128,13 @@ func (e entry) key() string { return e.Target.String() + "/" + e.Kind + "/" + e.
 
 var ownerPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9-]*$`)
 var repoPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9-]*/[A-Za-z0-9_.-]+$`)
+var envPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9-]*/[A-Za-z0-9_.-]+/[A-Za-z0-9_-][A-Za-z0-9_.-]*$`)
 var namePattern = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
+
+// Destination scopes, in the order their CLI filters are reported.
+var scopes = []string{"repo", "org", "env"}
+var scopePatterns = map[string]*regexp.Regexp{"repo": repoPattern, "org": ownerPattern, "env": envPattern}
+var scopeFormats = map[string]string{"repo": "OWNER/REPO", "org": "an organization name", "env": "OWNER/REPO/ENVIRONMENT"}
 
 func targets(tags []string) ([]target, error) {
 	var result []target
@@ -134,7 +143,7 @@ func targets(tags []string) ([]target, error) {
 			continue
 		}
 		scope, name, ok := strings.Cut(strings.TrimPrefix(tag, "ghsecrets/"), ":")
-		if !ok || (scope != "repo" && scope != "org") || (scope == "repo" && !repoPattern.MatchString(name)) || (scope != "repo" && !ownerPattern.MatchString(name)) {
+		if pattern := scopePatterns[scope]; !ok || pattern == nil || !pattern.MatchString(name) {
 			return nil, fmt.Errorf("invalid destination tag %q", tag)
 		}
 		result = append(result, target{scope, strings.ToLower(name)})
@@ -521,34 +530,35 @@ func runCLI(ctx context.Context, args []string, out, errOut io.Writer) error {
 	flags.SetOutput(errOut)
 	path := flags.String("config", filepath.Join(home, ".config", "ghsecretsync"), "configuration file (JSON)")
 	dry := flags.Bool("dry-run", false, "preview changes without writing to GitHub or local state")
-	repo := flags.String("repo", "", "sync only this tagged repository (OWNER/REPO)")
-	org := flags.String("org", "", "sync only this tagged organization")
+	values := map[string]*string{
+		"repo": flags.String("repo", "", "sync only this tagged repository (OWNER/REPO)"),
+		"org":  flags.String("org", "", "sync only this tagged organization"),
+		"env":  flags.String("env", "", "sync only this tagged environment (OWNER/REPO/ENVIRONMENT)"),
+	}
 	if err = flags.Parse(args); err != nil {
 		return err
 	}
 	if flags.NArg() != 0 {
 		return errors.New("unexpected positional arguments")
 	}
-	var repoSet, orgSet bool
-	flags.Visit(func(f *flag.Flag) {
-		repoSet = repoSet || f.Name == "repo"
-		orgSet = orgSet || f.Name == "org"
-	})
-	if repoSet && orgSet {
-		return errors.New("--repo and --org cannot be used together")
+	set := map[string]bool{}
+	flags.Visit(func(f *flag.Flag) { set[f.Name] = true })
+	var selected []string
+	for _, scope := range scopes {
+		if set[scope] {
+			selected = append(selected, scope)
+		}
+	}
+	if len(selected) > 1 {
+		return fmt.Errorf("--%s and --%s cannot be used together", selected[0], selected[1])
 	}
 	var filter target
-	if repoSet {
-		if !repoPattern.MatchString(*repo) {
-			return errors.New("--repo must be OWNER/REPO")
+	if len(selected) == 1 {
+		scope := selected[0]
+		if !scopePatterns[scope].MatchString(*values[scope]) {
+			return fmt.Errorf("--%s must be %s", scope, scopeFormats[scope])
 		}
-		filter = target{"repo", strings.ToLower(*repo)}
-	}
-	if orgSet {
-		if !ownerPattern.MatchString(*org) {
-			return errors.New("--org must be an organization name")
-		}
-		filter = target{"org", strings.ToLower(*org)}
+		filter = target{scope, strings.ToLower(*values[scope])}
 	}
 	cfg, err := loadConfig(*path)
 	if err != nil {

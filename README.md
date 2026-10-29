@@ -19,9 +19,10 @@ Limit a run to one destination:
 ```sh
 ./ghsecretsync --repo adam/whatever --dry-run
 ./ghsecretsync --org viaduct
+./ghsecretsync --env adam/whatever/release
 ```
 
-`--repo` and `--org` are mutually exclusive, case-insensitive filters on the existing 1Password destination tags. Only entries tagged for that exact destination are synced; items tagged for multiple destinations are applied only to the selected one. `--org` selects organization-level secrets and variables, not every repository owned by the organization. Without either flag, all tagged destinations are included. The preview shows the selected destination and reports when no entries match. Normal runs still ask for confirmation.
+`--repo`, `--org` and `--env` are mutually exclusive, case-insensitive filters on the existing 1Password destination tags. Only entries tagged for that exact destination are synced; items tagged for multiple destinations are applied only to the selected one. `--org` selects organization-level secrets and variables, not every repository owned by the organization, and `--repo` does not include that repository's environments. Without any of these flags, all tagged destinations are included. The preview shows the selected destination and reports when no entries match. Normal runs still ask for confirmation.
 
 ## 1Password items
 
@@ -29,6 +30,9 @@ Create items in the **GitHub Actions** vault, or the vault configured below. A S
 
 - `ghsecrets/org:viaductindustries`
 - `ghsecrets/repo:viaductindustries/nifty`
+- `ghsecrets/env:viaductindustries/nifty/release`
+
+`env:` tags target a [deployment environment](https://docs.github.com/en/actions/managing-workflow-runs-and-deployments/managing-deployments/managing-environments-for-deployment) in a repository, so only jobs that declare `environment: release` can read its secrets and variables, after any protection rules (required reviewers, branch or tag restrictions) pass. Use one to keep release credentials out of ordinary CI runs. The environment must already exist: create it under the repository's **Settings → Environments**. A missing environment fails the run before any GitHub writes. Environment names may contain letters, digits, `-`, `_` and `.`, and are case-insensitive.
 
 Every eligible field is copied to every tagged destination. Other tags are ignored. `ghsecrets/user:...` and malformed `ghsecrets/` tags are rejected: user-level Actions secrets do not exist.
 
